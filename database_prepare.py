@@ -6,6 +6,7 @@ import math
 import gc
 import random
 
+
 def resample(clip, scale=2, linear_scale=False, down=5, upfilter='bicubic'):
     assert isinstance(clip, vs.VideoNode)
 
@@ -57,10 +58,12 @@ def resample(clip, scale=2, linear_scale=False, down=5, upfilter='bicubic'):
 
     return clip
 
+
 def int_division(a, b):
     assert isinstance(a, int)
     assert isinstance(b, int)
     return a // b, a % b
+
 
 def get_data_from_frame(frame, num, planes, dim):
     assert isinstance(frame, vs.VideoFrame)
@@ -68,7 +71,7 @@ def get_data_from_frame(frame, num, planes, dim):
     assert isinstance(planes, int)
     assert isinstance(dim, int)
     arr = np.array([frame.get_read_array(p) for p in range(planes)], copy=False)
-    returnList = []
+    return_list = []
     w = frame.width
     h = frame.height
     col = w // dim
@@ -78,8 +81,9 @@ def get_data_from_frame(frame, num, planes, dim):
     for i in index_list:
         r_i, c_i = int_division(i, col)
         out = arr[:, r_i * dim : (r_i + 1) * dim, c_i * dim : (c_i + 1) * dim]
-        returnList.append(out)
-    return returnList
+        return_list.append(out)
+    return return_list
+
 
 def shuffle_together(lists):
     assert isinstance(lists, list)
@@ -92,70 +96,70 @@ def shuffle_together(lists):
 
 prefix = 'train_DRCN'
 suffix = '.h5'
-labelOutput = prefix + '_label' + suffix
-dataOutput = prefix + '_data' + suffix
+label_output = prefix + '_label' + suffix
+data_output = prefix + '_data' + suffix
 
 useRGB = False
 scale = 2
 linear_scale = False
 upfilter = 'bicubic'
 
-#data = '00003.m2ts'
+# data = '00003.m2ts'
 data = r'I:\Anime\The Garden of Words\BDROM\BDMV\STREAM\00000.m2ts'
-dataDim = 41
+data_dim = 41
 planes = 3 if useRGB else 1
 
 # Get source and do format conversion
 core = vs.get_core()
-labelClip = core.lsmas.LWLibavSource(data)
+label_clip = core.lsmas.LWLibavSource(data)
 if useRGB:
-    labelClip = mvf.ToRGB(labelClip, depth=32)
+    label_clip = mvf.ToRGB(label_clip, depth=32)
 else:
-    labelClip = mvf.Depth(labelClip.std.ShufflePlanes(0, vs.GRAY), 32)
+    label_clip = mvf.Depth(label_clip.std.ShufflePlanes(0, vs.GRAY), 32)
 
 # Prepare data
 down_lists = [d for d in range(1, 8)]
-dataClip = core.std.Interleave([resample(labelClip, scale, linear_scale, d, upfilter) for d in down_lists])
-labelClip = core.std.Interleave([labelClip for d in down_lists])
+data_clip = core.std.Interleave([resample(label_clip, scale, linear_scale, d, upfilter) for d in down_lists])
+label_clip = core.std.Interleave([label_clip for d in down_lists])
 
-w = dataClip.width
-h = dataClip.height
-frameNum = dataClip.num_frames
-assert w == labelClip.width
-assert h == labelClip.height
-assert frameNum == labelClip.num_frames
+w = data_clip.width
+h = data_clip.height
+nb_frame = data_clip.num_frames
+assert w == label_clip.width
+assert h == label_clip.height
+assert nb_frame == label_clip.num_frames
 
-sampleFrameNum = 10000
-samplePerFrame = 32
-sampleNum = sampleFrameNum * samplePerFrame
-assert frameNum >= sampleFrameNum
+nb_sample_frame = 10000
+nb_sample_per_frame = 32
+nb_sample = nb_sample_frame * nb_sample_per_frame
+assert nb_frame >= nb_sample_frame
 
 # Prepare HDF5 database
-dataFile = h5py.File(dataOutput, 'w')
-labelFile = h5py.File(labelOutput, 'w')
-dataFile.create_dataset('data', (sampleNum, planes, dataDim, dataDim), 'single')
-labelFile.create_dataset('label', (sampleNum, planes, dataDim, dataDim), 'single')
+data_file = h5py.File(data_output, 'w')
+label_file = h5py.File(label_output, 'w')
+data_file.create_dataset('data', (nb_sample, planes, data_dim, data_dim), 'single')
+label_file.create_dataset('label', (nb_sample, planes, data_dim, data_dim), 'single')
 
 # Get data from clip
-dataList = []
-labelList = []
-rlist = random.sample(range(frameNum), sampleFrameNum)
+data_list = []
+label_list = []
+rlist = random.sample(range(nb_frame), nb_sample_frame)
 rlist.sort()
-for i in range(sampleFrameNum):
-    currentFrame = rlist[i]
-    print('{:>6}: extracting from frame {:>6}'.format(i, currentFrame))
-    currentDataFrame = dataClip.get_frame(currentFrame)
-    currentLabelFrame = labelClip.get_frame(currentFrame)
-    dataList += get_data_from_frame(currentDataFrame, samplePerFrame, planes, dataDim)
-    labelList += get_data_from_frame(currentLabelFrame, samplePerFrame, planes, dataDim)
-    del currentDataFrame, currentLabelFrame
+for i in range(nb_sample_frame):
+    nb_frame_current = rlist[i]
+    print('{:>6}: extracting from frame {:>6}'.format(i, nb_frame_current))
+    data_frame_current = data_clip.get_frame(nb_frame_current)
+    label_frame_current = label_clip.get_frame(nb_frame_current)
+    data_list += get_data_from_frame(data_frame_current, nb_sample_per_frame, planes, data_dim)
+    label_list += get_data_from_frame(label_frame_current, nb_sample_per_frame, planes, data_dim)
+    del data_frame_current, label_frame_current
     gc.collect()
-shuffle_together([dataList, labelList])
-dataList = np.concatenate(tuple(dataList))
-labelList = np.concatenate(tuple(labelList))
+shuffle_together([data_list, label_list])
+data_list = np.concatenate(tuple(data_list))
+label_list = np.concatenate(tuple(label_list))
 
 # Write data to HDF5
-dataFile['data'].write_direct(dataList)
-labelFile['label'].write_direct(labelList)
-del dataList
-del dataList
+data_file['data'].write_direct(data_list)
+label_file['label'].write_direct(label_list)
+del data_list
+del data_list
