@@ -65,7 +65,7 @@ while i < sampleFrameNum:
     print(str(i))
     currentFrame = rlist[i]
     currentDataFrame = dataClip.get_frame(currentFrame)
-    currentLabelFrame = dataClip.get_frame(currentFrame)
+    currentLabelFrame = labelClip.get_frame(currentFrame)
     dataSubList = get_data_from_frame(currentDataFrame, dataDim, samplePerFrame)
     labelSubList = get_data_from_frame(currentLabelFrame, dataDim, samplePerFrame)
     m = 0
