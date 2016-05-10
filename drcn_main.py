@@ -5,10 +5,10 @@ from keras.utils.io_utils import HDF5Matrix
 from keras.optimizers import Adam
 from drcn_merge import DRCN_Merge
 
-BATCH_SIZE = 1
+BATCH_SIZE = 20
 
+input_data = Input(batch_shape=(BATCH_SIZE, 1, 41, 41), name='data')
 
-input_data = Input((1, 41, 41), name='data')
 
 def func_iterator(x, func, times):
     assert isinstance(times, int)
@@ -17,12 +17,12 @@ def func_iterator(x, func, times):
     return func_iterator(x, func, times-1)
 
 
-def conv():
-    return Convolution2D(256, 3, 3, 'he_normal', border_mode='same', activation='relu')
+def conv(channels=256, **kwargs):
+    return Convolution2D(channels, 3, 3, 'he_normal', border_mode='same', activation='relu', **kwargs)
 
-embed_net = Sequential([Activation('linear', input_shape=(1, 41, 41)), conv(), conv()], name='Embedding Net')
-infer_net = Sequential([Activation('linear', input_shape=(256, 41, 41)), conv()], name='Inference Net')
-recons_net = Sequential([Activation('linear', input_shape=(256, 41, 41)), conv(), Convolution2D(1, 3, 3, 'he_normal', border_mode='same')], name='Reconstruction Net')
+embed_net = Sequential([conv(batch_input_shape=(BATCH_SIZE, 1, 41, 41)), conv()], name='Embedding Net')
+infer_net = Sequential([conv(batch_input_shape=(BATCH_SIZE, 256, 41, 41))], name='Inference Net')
+recons_net = Sequential([conv(batch_input_shape=(BATCH_SIZE, 256, 41, 41)), conv(1)], name='Reconstruction Net')
 
 features = embed_net(input_data)
 recurrence_list = []
@@ -37,10 +37,10 @@ out = DRCNMerge(merged)
 DRCN_Model = Model(input=input_data, output=out, name='DRCN Final Model')
 DRCN_Model.compile(optimizer=Adam(lr=0.00001, beta_1=0.9, beta_2=0.999), loss='mae')
 
-train_data = HDF5Matrix('train_DRCN_data.h5', 'data', 0, 147000)
-train_label = HDF5Matrix('train_DRCN_label.h5', 'label', 0, 147000)
-test_data = HDF5Matrix('train_DRCN_data.h5', 'data', 147000, 150000)
-test_label = HDF5Matrix('train_DRCN_label.h5', 'label', 147000, 150000)
+train_data = HDF5Matrix('train_DRCN_data.h5', 'data', 0, 470)
+train_label = HDF5Matrix('train_DRCN_label.h5', 'label', 0, 470)
+test_data = HDF5Matrix('train_DRCN_data.h5', 'data', 470, 500)
+test_label = HDF5Matrix('train_DRCN_label.h5', 'label', 470, 500)
 
 with open('DRCN.yaml', 'w') as fp:
     fp.write(DRCN_Model.to_yaml())
