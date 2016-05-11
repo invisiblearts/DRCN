@@ -12,13 +12,17 @@ class DRCN_Merge(Layer):
 
     def build(self, input_shape):
         self.alpha = K.variable(np.random.random(self.ch))
+        assert len(input_shape) == 4
+        tmp = list(input_shape)
+        tmp[1] = 1
+        self.batch_out_shape = tuple(tmp)
         self.trainable_weights = [self.alpha]
 
     def call(self, x, mask=None):
         tmp = self.alpha[0] * x[:, 0, :, :]
         for i in range(1, self.ch):
             tmp += self.alpha[i] * x[:, i, :, :]
-        return tmp
+        return K.reshape(tmp, self.batch_out_shape)
 
     def get_output_shape_for(self, input_shape):
         in_dim = list(input_shape)
