@@ -96,8 +96,8 @@ def shuffle_together(lists):
 
 prefix = 'train_DRCN'
 suffix = '.h5'
-label_output = prefix + '_label' + suffix
 data_output = prefix + '_data' + suffix
+label_output = prefix + '_label' + suffix
 
 useRGB = False
 scale = 2
@@ -137,29 +137,27 @@ assert nb_frame >= nb_sample_frame
 # Prepare HDF5 database
 data_file = h5py.File(data_output, 'w')
 label_file = h5py.File(label_output, 'w')
-data_file.create_dataset('data', (nb_sample, planes, data_dim, data_dim), 'single')
-label_file.create_dataset('label', (nb_sample, planes, data_dim, data_dim), 'single')
+data_file.create_dataset('data', (nb_sample, planes, data_dim, data_dim), 'single', fillvalue=0)
+label_file.create_dataset('label', (nb_sample, planes, data_dim, data_dim), 'single', fillvalue=0)
+data_set = data_file['data']
+label_set = label_file['label']
 
-# Get data from clip
-data_list = []
-label_list = []
-rlist = random.sample(range(nb_frame), nb_sample_frame)
-rlist.sort()
-for i in range(nb_sample_frame):
-    nb_frame_current = rlist[i]
-    print('{:>6}: extracting from frame {:>6}'.format(i, nb_frame_current))
+# Get data from clip and write to HDF5
+frame_list = random.sample(range(nb_frame), nb_sample_frame)
+frame_list.sort()
+index_list = [i for i in range(nb_sample)]
+random.shuffle(index_list)
+i = 0
+for f in range(nb_sample_frame):
+    nb_frame_current = frame_list[f]
+    print('{:>6}: extracting from frame {:>6}'.format(f, nb_frame_current))
     data_frame_current = data_clip.get_frame(nb_frame_current)
     label_frame_current = label_clip.get_frame(nb_frame_current)
-    data_list += get_data_from_frame(data_frame_current, nb_sample_per_frame, planes, data_dim)
-    label_list += get_data_from_frame(label_frame_current, nb_sample_per_frame, planes, data_dim)
-    del data_frame_current, label_frame_current
+    sub_data_list = get_data_from_frame(data_frame_current, nb_sample_per_frame, planes, data_dim)
+    sub_label_list = get_data_from_frame(label_frame_current, nb_sample_per_frame, planes, data_dim)
+    for s in range(nb_sample_per_frame):
+        data_set[index_list[i]] = sub_data_list[s]
+        label_set[index_list[i]] = sub_label_list[s]
+        i += 1
+    del data_frame_current, label_frame_current, sub_data_list, sub_label_list
     gc.collect()
-shuffle_together([data_list, label_list])
-data_list = np.concatenate(tuple(data_list))
-label_list = np.concatenate(tuple(label_list))
-
-# Write data to HDF5
-data_file['data'].write_direct(data_list)
-label_file['label'].write_direct(label_list)
-del data_list
-del data_list
