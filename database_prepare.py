@@ -93,7 +93,11 @@ def get_data_from_frame(frame, num, planes, dim):
     assert isinstance(num, int)
     assert isinstance(planes, int)
     assert isinstance(dim, int)
-    arr = np.array([frame.get_read_array(p) for p in range(planes)], copy=False)
+    sub_arr = []
+    for p in range(planes):
+        arr = np.array(frame.get_read_array(p), copy=False)
+        sub_arr.append(arr.reshape((1, frame.height, frame.width)))
+    arr = np.concatenate(tuple(sub_arr))
     return_list = []
     w = frame.width
     h = frame.height
@@ -141,7 +145,7 @@ else:
     label_clip = mvf.Depth(label_clip.std.ShufflePlanes(0, vs.GRAY), 32)
 
 # Prepare data
-down_lists = [d for d in range(1, 8)]
+down_lists = list(range(1, 8))
 data_clip = core.std.Interleave([resample(label_clip, scale, linear_scale, d, upfilter) for d in down_lists])
 label_clip = core.std.Interleave([label_clip for d in down_lists])
 
@@ -160,15 +164,15 @@ assert nb_frame >= nb_sample_frame
 # Prepare HDF5 database
 data_file = h5py.File(data_output, 'w')
 label_file = h5py.File(label_output, 'w')
-data_file.create_dataset('data', (nb_sample, planes, data_dim, data_dim), 'single', fillvalue=0)
-label_file.create_dataset('label', (nb_sample, planes, data_dim, data_dim), 'single', fillvalue=0)
+data_file.create_dataset('data', (nb_sample, planes, data_dim, data_dim), 'single')
+label_file.create_dataset('label', (nb_sample, planes, data_dim, data_dim), 'single')
 data_set = data_file['data']
 label_set = label_file['label']
 
 # Get data from clip and write to HDF5
 frame_list = random.sample(range(nb_frame), nb_sample_frame)
 frame_list.sort()
-index_list = [i for i in range(nb_sample)]
+index_list = list(range(nb_sample))
 random.shuffle(index_list)
 i = 0
 for f in range(nb_sample_frame):
