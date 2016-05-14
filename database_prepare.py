@@ -88,28 +88,37 @@ def int_division(a, b):
     return a // b, a % b
 
 
-def get_data_from_frame(frame, num, planes, dim):
-    assert isinstance(frame, vs.VideoFrame)
+def get_data_from_frame(d_frame, l_frame, num, planes, dim):
+    assert isinstance(d_frame, vs.VideoFrame)
+    assert isinstance(l_frame, vs.VideoFrame)
     assert isinstance(num, int)
     assert isinstance(planes, int)
     assert isinstance(dim, int)
-    sub_arr = []
+    d_sub_arr = []
     for p in range(planes):
-        arr = np.array(frame.get_read_array(p), copy=False)
-        sub_arr.append(arr.reshape((1, frame.height, frame.width)))
-    arr = np.concatenate(tuple(sub_arr))
-    return_list = []
-    w = frame.width
-    h = frame.height
+        d_arr = np.array(d_frame.get_read_array(p), copy=False)
+        d_sub_arr.append(d_arr.reshape((1, d_frame.height, d_frame.width)))
+    d_arr = np.concatenate(tuple(d_sub_arr))
+    l_sub_arr = []
+    for p in range(planes):
+        l_arr = np.array(l_frame.get_read_array(p), copy=False)
+        l_sub_arr.append(l_arr.reshape((1, l_frame.height, l_frame.width)))
+    l_arr = np.concatenate(tuple(l_sub_arr))
+    d_list = []
+    l_list = []
+    w = d_frame.width
+    h = d_frame.height
     col = w // dim
     row = h // dim
     all = col * row
     index_list = random.sample(range(all), num)
     for i in index_list:
         r_i, c_i = int_division(i, col)
-        out = arr[:, r_i * dim : (r_i + 1) * dim, c_i * dim : (c_i + 1) * dim]
-        return_list.append(out)
-    return return_list
+        d_out = d_arr[:, r_i * dim : (r_i + 1) * dim, c_i * dim : (c_i + 1) * dim]
+        l_out = l_arr[:, r_i * dim: (r_i + 1) * dim, c_i * dim: (c_i + 1) * dim]
+        d_list.append(d_out)
+        l_list.append(l_out)
+    return d_list, l_list
 
 
 def shuffle_together(lists):
@@ -180,8 +189,7 @@ for f in range(nb_sample_frame):
     print('{:>6}: extracting from frame {:>6}'.format(f, nb_frame_current))
     data_frame_current = data_clip.get_frame(nb_frame_current)
     label_frame_current = label_clip.get_frame(nb_frame_current)
-    sub_data_list = get_data_from_frame(data_frame_current, nb_sample_per_frame, planes, data_dim)
-    sub_label_list = get_data_from_frame(label_frame_current, nb_sample_per_frame, planes, data_dim)
+    sub_data_list, sub_label_list = get_data_from_frame(data_frame_current, label_frame_current, nb_sample_per_frame, planes, data_dim)
     for s in range(nb_sample_per_frame):
         data_set[index_list[i]] = sub_data_list[s]
         label_set[index_list[i]] = sub_label_list[s]
